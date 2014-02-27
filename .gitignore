@@ -1,5 +1,6 @@
 *.gem
 *.rbc
+*.mp3
 .bundle
 .config
 coverage
