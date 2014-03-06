@@ -1,5 +1,4 @@
 require 'open4'
-require 'thread'
 
 class Player
 	def initialize(queue)
