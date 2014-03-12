@@ -14,14 +14,14 @@ player = Player.new(queue)
 thread = Thread.new{player.playAll}
 
 get '/' do
-	files = Dir["./songs/*.mp3"]
+	files = Dir["./songs/*.mp3"] + Dir["./songs/*.m4a"]
 	output = ""
 	files.each do |x|
 		pn = Pathname.new(x)
 		namelength = pn.basename.to_s.length - pn.extname.to_s.length
 		output << "<li><form name=\"#{pn.hash}\" method=\"POST\" action=\"/queue\">
-    		<p>#{pn.basename.to_s[0..namelength - 1]}<button type=\"submit\" name=\"filename\" value=\"#{pn.basename}\">Queue</button></p>
-		</form></li>"
+    				<p>#{pn.basename.to_s[0..namelength - 1]}<button type=\"submit\" name=\"filename\" value=\"#{pn.basename}\">Queue</button></p>
+					</form></li>"
 	end
 	output << "<form name=\"groovesharksearch\" method=\"POST\" action=\"/queue\">
     		<p>Search: <input type=\"text\" name=\"query\"> <input type=\"submit\" value=\"Submit\"></p>
