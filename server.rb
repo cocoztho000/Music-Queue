@@ -66,8 +66,15 @@ post '/queue' do
 		end
 		queue << Song.new(title, artist, album,(Dir.getwd + "/songs/" + params["filename"]).shellescape)
 		return "added"
+	elsif(params["hash"]]
+		if(localsongs[params["hash"]])
+			queue << localsongs[params["hash"].to_s]
+			return "added"
+		else
+			return "error: song does not exist"
+		end
 	else
-		return "error"
+		return "no valid params"
 	end
 end
 
