@@ -59,19 +59,6 @@ post '/queue' do
 		song = client.search_songs(params["query"])[0]
 		queue << Song.new(song.name, song.artist, song.album, client.get_song_url(song))
 		redirect to('/')
-	elsif(params["filename"])
-		pn = Pathname.new("songs/" + params["filename"])
-		title, artist, album = "", "", ""
-		TagLib::FileRef.open(pn.realpath.to_s) do |fileref|
-			unless fileref.null?
-				tag = fileref.tag
-				title = tag.title
-				artist = tag.artist
-				album = tag.album
-			end
-		end
-		queue << Song.new(title, artist, album,(Dir.getwd + "/songs/" + params["filename"]).shellescape)
-		redirect to('/')
 	elsif(params["hash"] != nil)
 		if(localsongs[params["hash"]])
 			queue << localsongs[params["hash"].to_s]
