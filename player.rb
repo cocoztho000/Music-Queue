@@ -6,9 +6,11 @@ class Player
 	end
 
 	def play(song)
-		@pid, @stdin, @stdout, @stderr = Open4.popen4("mplayer -slave -quiet #{song}")
+		@pid, @stdin, @stdout, @stderr = Open4.popen4("mplayer -slave -quiet \"#{song.playstring}\"")
+		@playing = true
 		until @stdout.gets.inspect =~ /Exiting/ do
 		end
+		@playing = false
 	end
 
 	def playAll
@@ -31,7 +33,9 @@ class Player
 	end
 
 	def next
-		@stdin.puts('pt_step 1 1')
+		if(@playing)
+			@stdin.puts('pt_step 1 1')
+		end
 	end
 
 	def kill
