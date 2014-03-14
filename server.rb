@@ -4,13 +4,14 @@ require 'shellwords'
 require 'thread'
 require 'byebug'
 require 'grooveshark'
+require 'digest'
 require 'taglib'
 require './player.rb'
 require './song.rb'
 
 set :bind => '0.0.0.0'
 
-#client = Grooveshark::Client.new
+client = Grooveshark::Client.new
 
 queue = Array.new
 player = Player.new(queue)
@@ -18,9 +19,10 @@ thread = Thread.new{player.playAll}
 
 songlist = Array.new
 mainoutput = String.new
+localsongs = nil
+sha256 = Digest::SHA256.new
 thread2 = Thread.new{
 	while(true)
-		localsongs = nil
 		localsongs = Hash.new
 		songlist = Dir["./songs/*.mp3"] + Dir["./songs/*.m4a"]
 		songlist.each do |songloc|
@@ -29,7 +31,7 @@ thread2 = Thread.new{
 				unless fileref.null?
 					tag = fileref.tag
 					song = Song.new(tag.title, tag.artist, tag.album, pn.realpath.to_s)
-					localsongs[song.hash] = song
+					localsongs[sha256.hexdigest(song.to_s)] = song
 				end
 			end
 		end
@@ -40,6 +42,10 @@ thread2 = Thread.new{
 	    				<p>#{song.title}<button type=\"submit\" name=\"hash\" value=\"#{hash}\">Queue</button></p>
 						</form></li>"
 		end
+
+		mainoutput << "<form name=\"groovesharksearch\" method=\"POST\" action=\"/queue\">
+    					<p>Search: <input type=\"text\" name=\"query\"> <input type=\"submit\" value=\"Submit\"></p>
+						</form>"
 		sleep 5
 	end
 }
@@ -52,7 +58,7 @@ post '/queue' do
 	if(params["query"])
 		song = client.search_songs(params["query"])[0]
 		queue << Song.new(song.name, song.artist, song.album, client.get_song_url(song))
-		return "added"
+		redirect to('/')
 	elsif(params["filename"])
 		pn = Pathname.new("songs/" + params["filename"])
 		title, artist, album = "", "", ""
@@ -65,11 +71,11 @@ post '/queue' do
 			end
 		end
 		queue << Song.new(title, artist, album,(Dir.getwd + "/songs/" + params["filename"]).shellescape)
-		return "added"
-	elsif(params["hash"]]
+		redirect to('/')
+	elsif(params["hash"] != nil)
 		if(localsongs[params["hash"]])
 			queue << localsongs[params["hash"].to_s]
-			return "added"
+			redirect to('/')
 		else
 			return "error: song does not exist"
 		end
