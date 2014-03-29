@@ -4,46 +4,79 @@ require 'shellwords'
 require 'thread'
 require 'byebug'
 require 'grooveshark'
+require 'digest'
+require 'taglib'
 require './player.rb'
+require './song.rb'
 
 set :bind => '0.0.0.0'
 
 client = Grooveshark::Client.new
+
 queue = Array.new
 player = Player.new(queue)
 thread = Thread.new{player.playAll}
 
-get '/' do
-	files = Dir["./songs/*.mp3"]
-	output = ""
-	files.each do |x|
-		pn = Pathname.new(x)
-		namelength = pn.basename.to_s.length - pn.extname.to_s.length
-		output << "<li><form name=\"#{pn.hash}\" method=\"POST\" action=\"/queue\">
-    		<p>#{pn.basename.to_s[0..namelength - 1]}<button type=\"submit\" name=\"filename\" value=\"#{pn.basename}\">Queue</button></p>
-		</form></li>"
+songlist = Array.new
+mainoutput = String.new
+localsongs = nil
+sha256 = Digest::SHA256.new
+thread2 = Thread.new{
+	while(true)
+		localsongs = Hash.new
+		songlist = Dir["./songs/*.mp3"] + Dir["./songs/*.m4a"]
+		songlist.each do |songloc|
+			pn = Pathname.new(songloc)
+			TagLib::FileRef.open(pn.realpath.to_s) do |fileref|
+				unless fileref.null?
+					tag = fileref.tag
+					song = Song.new(tag.title, tag.artist, tag.album, pn.realpath.to_s)
+					localsongs[sha256.hexdigest(song.to_s)] = song
+				end
+			end
+		end
+
+		mainoutput = String.new
+		localsongs.each do |hash,song|
+			mainoutput << "<li><form name=\"#{hash}\" method=\"POST\" action=\"/queue\">
+	    				<p>#{song.title}<button type=\"submit\" name=\"hash\" value=\"#{hash}\">Queue</button></p>
+						</form></li>"
+		end
+
+		mainoutput << "<form name=\"groovesharksearch\" method=\"POST\" action=\"/queue\">
+    					<p>Search: <input type=\"text\" name=\"query\"> <input type=\"submit\" value=\"Submit\"></p>
+						</form>"
+		sleep 5
 	end
-	output << "<form name=\"groovesharksearch\" method=\"POST\" action=\"/queue\">
-    		<p>Search: <input type=\"text\" name=\"query\"> <input type=\"submit\" value=\"Submit\"></p>
-		</form>"
-	return output
+}
+
+get '/' do
+	return mainoutput
 end
 
 post '/queue' do
 	if(params["query"])
 		song = client.search_songs(params["query"])[0]
-		queue << client.get_song_url(song)
-		return "added"
-	elsif(params["filename"])
-		queue << (Dir.getwd + "/songs/" + params["filename"]).shellescape
-		return "added"
+		queue << Song.new(song.name, song.artist, song.album, client.get_song_url(song))
+		redirect to('/')
+	elsif(params["hash"] != nil)
+		if(localsongs[params["hash"]])
+			queue << localsongs[params["hash"].to_s]
+			redirect to('/')
+		else
+			return "error: song does not exist"
+		end
 	else
-		return "error"
+		return "no valid params"
 	end
 end
 
 get '/showqueue' do
-	return queue.to_s
+	output = ""
+	queue.each_with_index do |song, num|
+		output << "<li>" + (num + 1).to_s + ". #{song.title}, #{song.artist}, #{song.album}</li>"
+	end
+	return output
 end
 
 post '/do' do
